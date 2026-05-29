@@ -30,7 +30,7 @@ scgeo_load <- function(path, as = c("matrix", "seurat", "sce"),
   as <- match.arg(as)
   if (!file.exists(path)) rlang::abort(sprintf("Path '%s' not found.", path))
 
-  result <- if (dir.exists(path)) load_dir(path, sample) else load_file(path)
+  result <- if (dir.exists(path)) load_dir(path, sample) else load_file(path, sample)
 
   if (is.list(result) && !methods::is(result, "Matrix")) {
     if (!is.null(sample)) {
@@ -64,7 +64,7 @@ scgeo_load_10x <- function(dir, as = c("matrix", "seurat", "sce"), project = "R2
 
 # --- dispatch ---------------------------------------------------------------
 
-load_file <- function(path) {
+load_file <- function(path, sample = NULL) {
   fmt <- detect_format(path)
   switch(fmt,
     mtx   = {
@@ -79,7 +79,7 @@ load_file <- function(path) {
     rds   = read_rds(path),
     dense = read_dense(path),
     tar   = ,
-    zip   = load_dir(extract_archive(path, fmt), NULL),
+    zip   = load_dir(extract_archive(path, fmt), sample),
     rlang::abort(sprintf("Unrecognized file format for '%s'.", basename(path)),
                  class = "scgeo_unknown_format")
   )
@@ -89,6 +89,10 @@ load_file <- function(path) {
 load_dir <- function(dir, sample) {
   trips <- find_triplets(dir)
   if (length(trips) > 0) {
+    trips <- filter_named_candidates(trips, sample, vapply(trips, function(t) basename(t$matrix), character(1)))
+    if (length(trips) == 0) {
+      rlang::abort(sprintf("No sample matched '%s'.", sample))
+    }
     mats <- lapply(trips, read_triplet)
     names(mats) <- vapply(trips, function(t)
       sub("_?matrix\\.mtx(\\.gz)?$", "", basename(t$matrix), ignore.case = TRUE),
@@ -106,11 +110,16 @@ load_dir <- function(dir, sample) {
   }
 
   ranked <- rank_data_files(fs)
+  ranked <- filter_named_candidates(ranked, sample, basename(ranked))
   if (length(ranked) == 0) {
-    rlang::abort(sprintf("No recognizable data files in '%s'.", dir),
-                 class = "scgeo_no_files")
+    msg <- if (is.null(sample)) {
+      sprintf("No recognizable data files in '%s'.", dir)
+    } else {
+      sprintf("No sample matched '%s'.", sample)
+    }
+    rlang::abort(msg, class = "scgeo_no_files")
   }
-  mats <- lapply(ranked, load_file)
+  mats <- lapply(ranked, load_file, sample = NULL)
   names(mats) <- basename(ranked)
   mats
 }
@@ -127,6 +136,11 @@ rank_data_files <- function(fs) {
 }
 
 as_list <- function(x) if (is.list(x) && !methods::is(x, "Matrix")) x else list(x)
+
+filter_named_candidates <- function(x, sample, labels) {
+  if (is.null(sample)) return(x)
+  x[grepl(sample, labels)]
+}
 
 # --- output coercion --------------------------------------------------------
 

@@ -30,6 +30,25 @@ test_that("scgeo_load reads a gzipped dense table", {
   expect_equal(dim(m), c(2, 2))
 })
 
+test_that("scgeo_load reads GEO dense tables without a gene header", {
+  tmp <- withr::local_tempdir()
+  f <- file.path(tmp, "raw_counts.txt.gz")
+  con <- gzfile(f)
+  writeLines(c(
+    '"cell1" "cell2" "cell3"',
+    '"GeneA" 1 0 2',
+    '"GeneB" 0 3 0'
+  ), con)
+  close(con)
+
+  m <- scgeo_load(f)
+  expect_s4_class(m, "dgCMatrix")
+  expect_equal(dim(m), c(2, 3))
+  expect_equal(rownames(m), c("GeneA", "GeneB"))
+  expect_equal(colnames(m), c("cell1", "cell2", "cell3"))
+  expect_equal(as.numeric(m["GeneA", "cell3"]), 2)
+})
+
 test_that("scgeo_load reads an .rds matrix and passes through Seurat objects", {
   tmp <- withr::local_tempdir()
   mat <- Matrix::Matrix(c(1, 0, 2, 3), 2, 2, sparse = TRUE)
@@ -73,6 +92,19 @@ test_that("sample selector picks one triplet from many", {
   make_triplet(tmp, prefix = "GSM2_")
   m <- scgeo_load(tmp, as = "matrix", sample = "GSM2")
   expect_s4_class(m, "dgCMatrix")
+})
+
+test_that("sample selector filters dense files before loading", {
+  tmp <- withr::local_tempdir()
+  writeLines(c("gene,c1,c2", "GeneA,1,0", "GeneB,0,2"),
+             file.path(tmp, "GSM1_counts.csv"))
+  writeLines(c("gene,c3,c4", "GeneC,3,0", "GeneD,0,4"),
+             file.path(tmp, "GSM2_counts.csv"))
+
+  m <- scgeo_load(tmp, as = "matrix", sample = "GSM2")
+  expect_s4_class(m, "dgCMatrix")
+  expect_equal(rownames(m), c("GeneC", "GeneD"))
+  expect_equal(colnames(m), c("c3", "c4"))
 })
 
 test_that("unknown format raises a clear error", {

@@ -1,0 +1,76 @@
+---
+title: "testing.Rmd"
+output: html_document
+date: "2026-05-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pkgload::load_all()
+
+# Identify yourself to NCBI and keep manual-test downloads separate from
+# your normal package cache.
+Sys.setenv(
+  ENTREZ_EMAIL = "ryanreis333@gmail.com",
+  SCGEO_CACHE = file.path(tempdir(), "R2scGEO-test-cache")
+)
+```
+
+```{r smoke-test-search}
+hits <- scgeo_search("glioblastoma", organism = "Homo sapiens", max_results = 5)
+hits
+```
+
+```{r smoke-test-metadata}
+meta <- scgeo_metadata("GSE164897")
+meta
+```
+
+```{r smoke-test-supplementary-files}
+files <- scgeo_suppl_files("GSE164897")
+files
+```
+
+```{r smoke-test-small-download}
+small <- scgeo_download("GSE164897", pattern = "filelist", overwrite = TRUE)
+small
+```
+
+```{r inspect-cache}
+scgeo_cache_dir()
+list.files(scgeo_cache_dir(), recursive = TRUE)
+```
+
+```{r raw-download-disabled, eval=FALSE}
+# Only run this after inspecting `files`; GEO RAW archives can be large.
+raw <- scgeo_download("GSE164897", pattern = "RAW", overwrite = FALSE)
+raw
+
+# Start with one sample so you are not parsing every dense count file at once.
+probe3 <- scgeo_load(dirname(raw[1]), as = "matrix", sample = "GSM5022595")
+probe3
+dim(probe3)
+probe3[1:5, 1:5]
+
+# When the one-sample path looks good, this loads all four GSM matrices.
+all_samples <- scgeo_load(dirname(raw[1]), as = "matrix")
+names(all_samples)
+vapply(all_samples, dim, integer(2))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

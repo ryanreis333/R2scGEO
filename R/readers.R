@@ -12,6 +12,9 @@ to_dgc <- function(x) {
     if (!methods::is(x, "CsparseMatrix")) x <- methods::as(x, "CsparseMatrix")
   } else {
     x <- Matrix::Matrix(x, sparse = TRUE)
+    if (!methods::is(x, "CsparseMatrix")) {
+      x <- methods::as(methods::as(x, "generalMatrix"), "CsparseMatrix")
+    }
   }
   methods::as(x, "dgCMatrix")
 }
@@ -33,17 +36,30 @@ read_triplet <- function(trip) {
 
 # --- Dense delimited table (genes x cells) ---------------------------------
 read_dense <- function(path) {
-  con <- open_maybe_gz(path)
-  if (requireNamespace("data.table", quietly = TRUE)) {
-    df <- data.table::fread(text = readLines(con), data.table = FALSE)
-  } else {
-    sep <- guess_sep(path)
-    df <- utils::read.delim(con, sep = sep, header = TRUE,
+  sep <- guess_sep(path)
+  first <- read_table_row(path, sep, skip = 0)
+  second <- read_table_row(path, sep, skip = 1)
+
+  if (ncol(second) == ncol(first) + 1) {
+    cells <- as.character(first[1, ])
+    df <- utils::read.table(open_maybe_gz(path), sep = sep, header = FALSE,
+                            skip = 1, quote = "\"'", comment.char = "",
                             check.names = FALSE, stringsAsFactors = FALSE)
+    genes <- as.character(df[[1]])
+    df <- df[, -1, drop = FALSE]
+    if (length(cells) == ncol(df)) names(df) <- make.unique(cells)
+  } else {
+    df <- utils::read.table(open_maybe_gz(path), sep = sep, header = TRUE,
+                            quote = "\"'", comment.char = "",
+                            check.names = FALSE, stringsAsFactors = FALSE)
+    if (ncol(df) < 2) {
+      rlang::abort("Dense table has no data columns.", class = "scgeo_bad_table")
+    }
+    genes <- as.character(df[[1]])
+    df <- df[, -1, drop = FALSE]
   }
-  if (ncol(df) < 2) rlang::abort("Dense table has no data columns.", class = "scgeo_bad_table")
-  genes <- as.character(df[[1]])
-  m <- as.matrix(df[, -1, drop = FALSE])
+  if (ncol(df) < 1) rlang::abort("Dense table has no data columns.", class = "scgeo_bad_table")
+  m <- as.matrix(df)
   storage.mode(m) <- "double"
   rownames(m) <- make.unique(genes)
   mat <- to_dgc(m)
@@ -53,11 +69,18 @@ read_dense <- function(path) {
   mat
 }
 
+read_table_row <- function(path, sep, skip = 0) {
+  utils::read.table(open_maybe_gz(path), sep = sep, header = FALSE,
+                    nrows = 1, skip = skip, quote = "\"'",
+                    comment.char = "", check.names = FALSE,
+                    stringsAsFactors = FALSE)
+}
+
 guess_sep <- function(path) {
   con <- open_maybe_gz(path)
   on.exit(try(close(con), silent = TRUE), add = TRUE)
   line <- tryCatch(readLines(con, n = 1, warn = FALSE), error = function(e) "")
-  if (grepl("\t", line)) "\t" else if (grepl(";", line)) ";" else ","
+  if (grepl("\t", line)) "\t" else if (grepl(",", line)) "," else if (grepl(";", line)) ";" else ""
 }
 
 # --- 10x HDF5 (.h5) ---------------------------------------------------------
