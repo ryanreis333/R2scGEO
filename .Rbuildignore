@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.Rmd$
+^\.github$
+^doc$
+^\.DS_Store$
+^R2scGEO\.Rcheck$
+^R2scGEO_.*\.tar\.gz$
+^LICENSE\.md$

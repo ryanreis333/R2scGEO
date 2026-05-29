@@ -1,0 +1,35 @@
+Package: R2scGEO
+Title: Query and Load Public scRNA-seq Datasets from GEO
+Version: 0.1.0
+Authors@R: person("Ryan", "Reis", email = "ryanreis333@gmail.com", role = c("aut", "cre"))
+Description: A lightweight toolkit to search NCBI GEO for single-cell RNA-seq
+    series, inspect their metadata, list and download supplementary files,
+    and load 10x-style sparse matrices into Seurat or SingleCellExperiment
+    objects. Downloads are cached on disk to avoid repeated queries.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: R (>= 4.1)
+Imports:
+    httr2,
+    jsonlite,
+    Matrix,
+    methods,
+    tibble,
+    rlang,
+    tools,
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    withr,
+    data.table,
+    hdf5r,
+    zellkonverter,
+    anndata,
+    Seurat,
+    SingleCellExperiment,
+    SummarizedExperiment
+Config/testthat/edition: 3
+URL: https://github.com/ryanreis333/R2scGEO
+BugReports: https://github.com/ryanreis333/R2scGEO/issues
